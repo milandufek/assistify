@@ -107,7 +107,7 @@ class App(tk.Tk):
             self.input_text.delete('insert-1c wordstart', 'insert')
             return 'break'
 
-        self.input_text = ScrolledText(frame_input, height=10)
+        self.input_text = ScrolledText(frame_input, wrap=tk.WORD, height=10)
         self.input_text.insert('1.0', default_input)
         self.input_text.bind('<Button-1>', clean_input)
         self.input_text.bind('<Control-a>', select_all)
@@ -140,7 +140,7 @@ class App(tk.Tk):
             self.response_text.see(tk.INSERT)
             return 'break'
 
-        self.response_text = ScrolledText(frame_response, height=14)
+        self.response_text = ScrolledText(frame_response, wrap=tk.WORD, height=14)
         self.response_text.pack(fill=tk.BOTH, expand=True)
         self.response_text.bind('<Control-a>', select_all)
 
