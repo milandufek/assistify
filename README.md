@@ -2,7 +2,7 @@
 
 ## Installation
 
-Clone repository and install requirements.
+Clone repository and install the requirements.
 
 ```bash
 git clone git@github.com:milandufek/assistify.git
@@ -10,13 +10,13 @@ cd assistify
 pip install -r requirements.txt
 ```
 
+## Usage
+
 Add your API key to `openai_api_key` value in `config.json` or set global environment variable `OPENAI_API_KEY`.
 
-If both set environment variable takes precedence.
+If both set the environment variable takes precedence.
 
-Ensure you have money on your OpenAI account :)
-
-## Usage
+Ensure you have some money on your OpenAI account :).
 
 ```bash
 python assistify.py

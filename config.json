@@ -1,10 +1,11 @@
 {
     "openai_api_key": "## add-your-key-here",
-    "archive" : "True",
+    "archive" : true,
     "archive_path" : "archive",
     "currency": "CZK",
     "currency_exchange_rate": 22.8,
-    "version": "1.0",
+    "copy_to_clipboard": true,
+    "resizable_window": true,
     "models": {
         "gpt-3.5-turbo": {
             "description": "cheap and good enough",
@@ -69,15 +70,16 @@
     },
     "ui": {
         "title" : "💬 Assistify - Chat GPT assistant",
-        "button_load_article" : " 📝 Load article",
+        "button_load_article" : "Load article",
         "button_generate": " 💬 Generate",
-        "button_copy": " 📋 Copy",
         "message_input" : "Enter the variable input of your prompt here.\nThen press CTRL+ENTER or click the 💬 generate button.",
         "message_url": "URL with article to load",
-        "status_bar": "Ready",
+        "ready": "✅ Ready",
         "separator": "•",
-        "unable_to_load_article": "Unable to load article",
+        "unable_to_load_article": "⚠️ Unable to load article",
         "copied": "Copied to clipboard",
-        "last_req_cost": "Last request cost"
+        "request_completed": "✅ Completed in {}s • Cost:",
+        "waiting": "⌛ Waiting for GPT...",
+        "warning": "⚠️"
     }
 }

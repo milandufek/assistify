@@ -126,5 +126,10 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+# VS code
+.vscode/
+
 # My test files
 test.py
+snippets.py
+images

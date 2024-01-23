@@ -11,10 +11,10 @@ from openai.types.chat import ChatCompletion
 class Config:
 
     def __init__(self, config_path: str) -> None:
-        self.config = self.get_config(config_path)
+        self.config_path = config_path
 
-    def get_config(self, config: str = 'config.json') -> dict:
-        with open(config) as f:
+    def get_config(self) -> dict:
+        with open(self.config_path) as f:
             config = json.loads(f.read())
 
         return config
@@ -28,15 +28,16 @@ class App(tk.Tk):
         self.cfg = Config(config_path='config.json').get_config()
         self.paddings = {'padx': 2, 'pady': 2}
         self.button_width = 16
-        self.url = None
         self.model = 'gpt-3.5-turbo'
-        self.input = ''
-        self.output = ''
+        self.input, self.output = '', ''
+        self.status = tk.StringVar()
+        self.url = tk.StringVar()
 
         # Draw window and widgets
         self.title(self.cfg['ui']['title'])
         self.geometry('800x800')
-        # self.resizable(width=False, height=False)
+        if not self.cfg['resizable_window']:
+            self.resizable(width=False, height=False)
         self.frame_top()
         self.frame_input()
         self.frame_action()
@@ -66,7 +67,7 @@ class App(tk.Tk):
 
         def clean_url(event) -> None:
             if self.url.get().strip() == default_url:
-                input_url.delete(0, tk.END)
+                self.url.set('')
 
         def select_all(event) -> str:
             self.input_url.tag_add(tk.SEL, '1.0', tk.END)
@@ -74,11 +75,9 @@ class App(tk.Tk):
             self.input_url.see(tk.INSERT)
             return 'break'
 
-        self.url = tk.StringVar()
         self.url.set(default_url)
-        input_url = tk.Entry(frame_top)
+        input_url = tk.Entry(frame_top, textvariable=self.url)
         input_url.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        input_url['textvariable'] = self.url
         input_url.bind('<Key-Return>', self.get_article)
         input_url.bind('<Button-1>', clean_url)
         input_url.bind('<Control-a>', select_all)
@@ -149,60 +148,68 @@ class App(tk.Tk):
         frame_status_bar = tk.Frame(self)
         frame_status_bar.pack(fill=tk.X, **self.paddings)
 
-        self.status_bar = tk.Label(frame_status_bar, text=self.cfg['ui']['Ready'])
+        self.status.set(self.cfg['ui']['ready'])
+        self.status_bar = tk.Label(frame_status_bar, textvariable=self.status)
         self.status_bar.pack(side=tk.LEFT, fill=tk.X)
-
-        button_copy = tk.Button(frame_status_bar, text=self.cfg['ui']['button_copy'],
-                                width=self.button_width, command=self.copy_to_clipboard)
-        button_copy.pack(side=tk.RIGHT, fill=tk.BOTH)
 
     def set_model(self, model: str) -> str:
         self.model = model
         print(f'The current model is: {model}')
         return model
 
-    def set_prompt(self, prompt) -> str:
+    def set_prompt(self, prompt: str) -> str:
         print(f'The current prompt template is: {prompt}')
         return prompt
 
-    def call_gpt(self, event=None) -> None:
+    def prepare_prompt(self) -> None:
         prompt_template = self.prompt_template.get()
         prompt_input = self.input_text.get('1.0', tk.END).strip()
         self.input = '\n\n'.join([
             line.strip().format('\n\n' + prompt_input.strip())
             for line in self.cfg['templates'][prompt_template]
         ])
-        print('Calling GPT...')
-        print(f'GPT prompt template: {prompt_template}')
-        print(f'GPT user input: {prompt_input[:50]} ... {prompt_input[-50:]}')
+        # print(f'GPT prompt template: {prompt_template}')
+        # print(f'GPT user input: {prompt_input[:50]} ... {prompt_input[-50:]}')
 
+    def call_gpt(self, event=None) -> None:
+        time_start = datetime.now()
+        self.prepare_prompt()
         api_key = os.environ.get('OPENAI_API_KEY', self.cfg['openai_api_key'])
-        self.client = OpenAI(api_key=api_key)
 
-        resp = self.client.chat.completions.create(
-            messages=[{
-                'role': 'user',
-                'content': self.input,
-            }],
-            model=self.model,
-        )
+        try:
+            self.status.set(f"{self.cfg['ui']['waiting']}")
+            self.update_idletasks()
+            self.client = OpenAI(api_key=api_key)
+            resp = self.client.chat.completions.create(
+                messages=[{
+                    'role': 'user',
+                    'content': self.input,
+                }],
+                model=self.model,
+            )
+        except APIError as e:
+            print(e.message)
+            self.status.set(f"{self.cfg['ui']['warning']} {e.body['message'][:85]} ...")
+            return
 
         self.output = resp.choices[0].message.content
-        cost = self.get_cost(resp)
-        print(f'Response: {self.output[:100]} ...')
-
-        self.archive_response(self.input, cost)
+        cost = self.get_request_cost(resp)
+        # print(f'GPT response: {self.output[:100]} ...')
 
         self.response_text.delete('1.0', tk.END)
         self.response_text.insert('1.0', self.output)
-        self.status_bar.config(text=f'{self.cfg['ui']['last_req_cost']}: {cost} {self.cfg['currency']}')
+        duration = (datetime.now() - time_start).seconds
+        self.status.set(f"{self.cfg['ui']['request_completed'].format(duration)} " \
+                        f"{cost} {self.cfg['currency']}")
+        self.copy_to_clipboard()
+        self.archive_chat()
 
-    def get_cost(self, response: ChatCompletion) -> float:
+    def get_request_cost(self, response: ChatCompletion) -> float:
         per_tokens = 1000
         cost_prompt = int(response.usage.prompt_tokens) / per_tokens * \
-            float(self.cfg['models'][self.model]['input_token_cost'])
+            self.cfg['models'][self.model]['input_token_cost']
         cost_resp = int(response.usage.completion_tokens) / per_tokens * \
-            float(self.cfg['models'][self.model]['output_token_cost'])
+            self.cfg['models'][self.model]['output_token_cost']
         cost = cost_prompt + cost_resp
 
         if self.cfg['currency'] != 'USD' and self.cfg['currency_exchange_rate']:
@@ -213,6 +220,9 @@ class App(tk.Tk):
         return cost
 
     def copy_to_clipboard(self) -> None:
+        if not self.cfg['copy_to_clipboard']:
+            return
+
         response = self.response_text.get('1.0', tk.END).strip()
 
         if not response:
@@ -226,7 +236,8 @@ class App(tk.Tk):
         current_status = self.status_bar.cget('text')
 
         if not current_status.endswith(copy_msg):
-            self.status_bar.config(text=f'{current_status} {sep} {copy_msg}')
+            self.status.set(f'{current_status} {sep} {copy_msg}')
+            self.update_idletasks()
 
     def get_article(self) -> None:
         article = Article(self.url.get())
@@ -239,15 +250,18 @@ class App(tk.Tk):
         else:
             self.input_text.insert('1.0', self.cfg['ui']['unable_to_load_article'])
 
-    def archive_response(self, message: str, cost: float) -> None:
+    def archive_chat(self) -> None:
         if self.cfg['archive']:
             now = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-            file_path = os.path.join(self.cfg['archive_path'], f'{now}.json')
+            archive_dir = self.cfg['archive_path']
+
+            if not os.path.isdir(archive_dir):
+                os.makedirs(archive_dir)
+
+            file_path = os.path.join(archive_dir, f'{now}.json')
             dump = {
                 'model': self.model,
-                'cost': cost,
-                'currency': self.cfg['currency'],
-                'input': message,
+                'input': self.input,
                 'output': self.output,
             }
             with open(file_path, 'w') as f:
