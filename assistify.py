@@ -2,7 +2,9 @@ import json
 import os
 import tkinter as tk
 from datetime import datetime
+from dataclasses import dataclass, field
 from tkinter.scrolledtext import ScrolledText
+import sv_ttk
 from newspaper import Article
 from openai import OpenAI, APIError
 from openai.types.chat import ChatCompletion
@@ -20,24 +22,33 @@ class Config:
         return config
 
 
+@dataclass
+class UI:
+    button_width: int = 16
+    dropdown_width: int = 14
+    paddings: dict = field(default_factory=lambda: {'padx': 2, 'pady': 2})
+
+
 class App(tk.Tk):
 
     def __init__(self) -> None:
         super().__init__()
-        self.work_dir = os.getcwd()
         self.cfg = Config(config_path='config.json').get_config()
-        self.paddings = {'padx': 2, 'pady': 2}
-        self.button_width = 16
+        self.ui = UI()
         self.model = 'gpt-3.5-turbo'
         self.input, self.output = '', ''
         self.status = tk.StringVar()
         self.url = tk.StringVar()
 
-        # Draw window and widgets
         self.title(self.cfg['ui']['title'])
         self.geometry('800x800')
+
+        if self.cfg['theme']:
+            sv_ttk.set_theme(self.cfg['theme'])
+
         if not self.cfg['resizable_window']:
             self.resizable(width=False, height=False)
+
         self.frame_top()
         self.frame_input()
         self.frame_action()
@@ -45,34 +56,27 @@ class App(tk.Tk):
         self.frame_status_bar()
         self.mainloop()
 
-    def get_config(self, config: str) -> dict:
-        with open(config) as f:
-            config = json.loads(f.read())
-
-        return config
-
     def frame_top(self) -> None:
         frame_top = tk.Frame(self)
-        frame_top.pack(fill=tk.X, **self.paddings)
+        frame_top.pack(fill=tk.X, **self.ui.paddings)
 
         selected_model = tk.StringVar()
         models = list(self.cfg['models'].keys())
         selected_model.set(models[0])
         dropdown_model = tk.OptionMenu(frame_top, selected_model, *models,
                                        command=self.set_model)
-        dropdown_model.config(width=14)
+        dropdown_model.config(width=self.ui.dropdown_width)
         dropdown_model.pack(side=tk.LEFT, fill=tk.X)
 
         default_url = self.cfg['ui']['message_url']
 
-        def clean_url(event) -> None:
+        def clean_url(event: tk.Event = None) -> None:
             if self.url.get().strip() == default_url:
                 self.url.set('')
 
-        def select_all(event) -> str:
-            self.input_url.tag_add(tk.SEL, '1.0', tk.END)
-            self.input_url.mark_set(tk.INSERT, '1.0')
-            self.input_url.see(tk.INSERT)
+        def select_all(widget: tk.Widget, event: tk.Event = None) -> str:
+            widget.select_range(0, 'end')
+            widget.icursor('end')
             return 'break'
 
         self.url.set(default_url)
@@ -80,30 +84,34 @@ class App(tk.Tk):
         input_url.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         input_url.bind('<Key-Return>', self.get_article)
         input_url.bind('<Button-1>', clean_url)
-        input_url.bind('<Control-a>', select_all)
+        input_url.bind('<Control-a>', lambda e, w=input_url: select_all(w, e))
 
-        button_fill = tk.Button(frame_top, text=self.cfg['ui']['button_load_article'],
-                                width=self.button_width, command=self.get_article)
+        button_fill = tk.Button(
+            frame_top,
+            text=self.cfg['ui']['button_load_article'],
+            width=self.ui.button_width,
+            command=self.get_article
+        )
         button_fill.pack(side=tk.LEFT, fill=tk.X)
 
     def frame_input(self) -> None:
         frame_input = tk.Frame(self)
-        frame_input.pack(fill=tk.X, **self.paddings)
+        frame_input.pack(fill=tk.X, **self.ui.paddings)
 
         default_input = self.cfg['ui']['message_input']
         fault_input = self.cfg['ui']['unable_to_load_article']
 
-        def clean_input(event) -> None:
+        def clean_input(event: tk.Event = None) -> None:
             if self.input_text.get('1.0', tk.END).strip() in (default_input, fault_input):
                 self.input_text.delete('1.0', tk.END)
 
-        def select_all(event) -> str:
+        def select_all(event: tk.Event = None) -> str:
             self.input_text.tag_add(tk.SEL, '1.0', tk.END)
             self.input_text.mark_set(tk.INSERT, '1.0')
             self.input_text.see(tk.INSERT)
             return 'break'
 
-        def delete_last_word(event) -> str:
+        def delete_last_word(event: tk.Event = None) -> str:
             self.input_text.delete('insert-1c wordstart', 'insert')
             return 'break'
 
@@ -117,24 +125,32 @@ class App(tk.Tk):
 
     def frame_action(self) -> None:
         frame_actions = tk.Frame(self)
-        frame_actions.pack(fill=tk.X, **self.paddings)
+        frame_actions.pack(fill=tk.X, **self.ui.paddings)
 
         self.prompt_template = tk.StringVar()
         templates = list(self.cfg['templates'].keys())
         self.prompt_template.set(templates[0])
-        dropdown_prompt = tk.OptionMenu(frame_actions, self.prompt_template, *templates,
-                                        command=self.set_prompt)
+        dropdown_prompt = tk.OptionMenu(
+            frame_actions,
+            self.prompt_template,
+            *templates,
+            command=self.set_prompt
+        )
         dropdown_prompt.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-        button_generate = tk.Button(frame_actions, text=self.cfg['ui']['button_generate'],
-                                    width=self.button_width, command=self.call_gpt)
+        button_generate = tk.Button(
+            frame_actions,
+            text=self.cfg['ui']['button_generate'],
+            width=self.ui.button_width,
+            command=self.call_gpt
+        )
         button_generate.pack(side=tk.RIGHT, fill=tk.X)
 
     def frame_response(self) -> None:
         frame_response = tk.Frame(self)
-        frame_response.pack(fill=tk.BOTH, expand=True, **self.paddings)
+        frame_response.pack(fill=tk.BOTH, expand=True, **self.ui.paddings)
 
-        def select_all(event) -> str:
+        def select_all(event: tk.Event = None) -> str:
             self.response_text.tag_add(tk.SEL, '1.0', tk.END)
             self.response_text.mark_set(tk.INSERT, '1.0')
             self.response_text.see(tk.INSERT)
@@ -146,7 +162,7 @@ class App(tk.Tk):
 
     def frame_status_bar(self) -> None:
         frame_status_bar = tk.Frame(self)
-        frame_status_bar.pack(fill=tk.X, **self.paddings)
+        frame_status_bar.pack(fill=tk.X, **self.ui.paddings)
 
         self.status.set(self.cfg['ui']['ready'])
         self.status_bar = tk.Label(frame_status_bar, textvariable=self.status)
@@ -154,11 +170,9 @@ class App(tk.Tk):
 
     def set_model(self, model: str) -> str:
         self.model = model
-        print(f'The current model is: {model}')
         return model
 
     def set_prompt(self, prompt: str) -> str:
-        print(f'The current prompt template is: {prompt}')
         return prompt
 
     def prepare_prompt(self) -> None:
@@ -168,10 +182,8 @@ class App(tk.Tk):
             line.strip().format('\n\n' + prompt_input.strip())
             for line in self.cfg['templates'][prompt_template]
         ])
-        # print(f'GPT prompt template: {prompt_template}')
-        # print(f'GPT user input: {prompt_input[:50]} ... {prompt_input[-50:]}')
 
-    def call_gpt(self, event=None) -> None:
+    def call_gpt(self, event: tk.Event = None) -> None:
         time_start = datetime.now()
         self.prepare_prompt()
         api_key = os.environ.get('OPENAI_API_KEY', self.cfg['openai_api_key'])
@@ -193,23 +205,22 @@ class App(tk.Tk):
             return
 
         self.output = resp.choices[0].message.content
-        cost = self.get_request_cost(resp)
-        # print(f'GPT response: {self.output[:100]} ...')
-
         self.response_text.delete('1.0', tk.END)
         self.response_text.insert('1.0', self.output)
+        cost = self.get_request_cost(resp)
         duration = (datetime.now() - time_start).seconds
-        self.status.set(f"{self.cfg['ui']['request_completed'].format(duration)} " \
-                        f"{cost} {self.cfg['currency']}")
+        self.status.set(f"{self.cfg['ui']['request_completed'].format(
+            duration, cost, self.cfg['currency']
+        )}")
         self.copy_to_clipboard()
         self.archive_chat()
 
     def get_request_cost(self, response: ChatCompletion) -> float:
         per_tokens = 1000
-        cost_prompt = int(response.usage.prompt_tokens) / per_tokens * \
-            self.cfg['models'][self.model]['input_token_cost']
-        cost_resp = int(response.usage.completion_tokens) / per_tokens * \
-            self.cfg['models'][self.model]['output_token_cost']
+        in_cost = self.cfg['models'][self.model]['input_token_cost']
+        out_cost = self.cfg['models'][self.model]['output_token_cost']
+        cost_prompt = response.usage.prompt_tokens / per_tokens * in_cost
+        cost_resp = response.usage.completion_tokens / per_tokens * out_cost
         cost = cost_prompt + cost_resp
 
         if self.cfg['currency'] != 'USD' and self.cfg['currency_exchange_rate']:
@@ -240,7 +251,12 @@ class App(tk.Tk):
             self.update_idletasks()
 
     def get_article(self) -> None:
-        article = Article(self.url.get())
+        url = self.url.get().strip()
+
+        if not url or url == self.cfg['ui']['message_url']:
+            return
+
+        article = Article(url)
         article.download()
         article.parse()
         self.input_text.delete('1.0', tk.END)
