@@ -12,14 +12,39 @@ from openai.types.chat import ChatCompletion
 
 class Config:
 
-    def __init__(self, config_path: str) -> None:
-        self.config_path = config_path
+    def __init__(self) -> None:
+        self.global_conf_path = 'config.json'
+        self.user_conf_path = 'config.user.json'
 
     def get_config(self) -> dict:
-        with open(self.config_path) as f:
+        global_conf = self.load_json_config(self.global_conf_path)
+        user_conf = {}
+
+        if os.path.isfile(self.user_conf_path):
+            user_conf = self.load_json_config(self.user_conf_path)
+
+        return self.merge_configs(global_conf, user_conf)
+
+    def load_json_config(self, conf_path: str) -> dict:
+        with open(conf_path) as f:
             config = json.loads(f.read())
 
         return config
+
+    def merge_configs(self, first: dict, second: dict) -> dict:
+        merged = {}
+
+        for key, val in first.items():
+            if isinstance(val, dict):
+                merged[key] = self.merge_configs(val, second.get(key, {}))
+            else:
+                merged[key] = second.get(key, val)
+
+        for key, val in second.items():
+            if key not in first:
+                merged[key] = val
+
+        return merged
 
 
 @dataclass
@@ -33,7 +58,7 @@ class App(tk.Tk):
 
     def __init__(self) -> None:
         super().__init__()
-        self.cfg = Config(config_path='config.json').get_config()
+        self.cfg = Config().get_config()
         self.ui = UI()
         self.model = 'gpt-3.5-turbo'
         self.input, self.output = '', ''
@@ -186,7 +211,7 @@ class App(tk.Tk):
     def call_gpt(self, event: tk.Event = None) -> None:
         time_start = datetime.now()
         self.prepare_prompt()
-        api_key = os.environ.get('OPENAI_API_KEY', self.cfg['openai_api_key'])
+        api_key = os.environ.get('OPENAI_API_KEY', self.cfg.get('openai_api_key'))
 
         try:
             self.status.set(f"{self.cfg['ui']['waiting']}")
@@ -267,21 +292,23 @@ class App(tk.Tk):
             self.input_text.insert('1.0', self.cfg['ui']['unable_to_load_article'])
 
     def archive_chat(self) -> None:
-        if self.cfg['archive']:
-            now = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-            archive_dir = self.cfg['archive_path']
+        if not self.cfg['archive']:
+            return
 
-            if not os.path.isdir(archive_dir):
-                os.makedirs(archive_dir)
+        now = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        archive_dir = self.cfg['archive_path']
 
-            file_path = os.path.join(archive_dir, f'{now}.json')
-            dump = {
-                'model': self.model,
-                'input': self.input,
-                'output': self.output,
-            }
-            with open(file_path, 'w') as f:
-                json.dump(dump, f, ensure_ascii=False, indent=4)
+        if not os.path.isdir(archive_dir):
+            os.makedirs(archive_dir)
+
+        file_path = os.path.join(archive_dir, f'{now}.json')
+        dump = {
+            'model': self.model,
+            'input': self.input,
+            'output': self.output,
+        }
+        with open(file_path, 'w') as f:
+            json.dump(dump, f, ensure_ascii=False, indent=4)
 
 
 if __name__ == '__main__':

@@ -1,3 +1,12 @@
+# My files
+config.user.json
+test.py
+snippets.py
+images
+
+# VS code
+.vscode/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -125,11 +134,3 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
-
-# VS code
-.vscode/
-
-# My test files
-test.py
-snippets.py
-images
