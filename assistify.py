@@ -2,76 +2,35 @@ import json
 import os
 import tkinter as tk
 from datetime import datetime
-from dataclasses import dataclass, field
 from tkinter.scrolledtext import ScrolledText
 import sv_ttk
 from newspaper import Article
 from openai import OpenAI, APIError
 from openai.types.chat import ChatCompletion
-
-
-class Config:
-
-    def __init__(self) -> None:
-        self.global_conf_path = 'config.json'
-        self.user_conf_path = 'config.user.json'
-
-    def get_config(self) -> dict:
-        global_conf = self.load_json_config(self.global_conf_path)
-        user_conf = {}
-
-        if os.path.isfile(self.user_conf_path):
-            user_conf = self.load_json_config(self.user_conf_path)
-
-        return self.merge_configs(global_conf, user_conf)
-
-    def load_json_config(self, conf_path: str) -> dict:
-        with open(conf_path) as f:
-            config = json.loads(f.read())
-
-        return config
-
-    def merge_configs(self, first: dict, second: dict) -> dict:
-        merged = {}
-
-        for key, val in first.items():
-            if isinstance(val, dict):
-                merged[key] = self.merge_configs(val, second.get(key, {}))
-            else:
-                merged[key] = second.get(key, val)
-
-        for key, val in second.items():
-            if key not in first:
-                merged[key] = val
-
-        return merged
-
-
-@dataclass
-class UI:
-    button_width: int = 16
-    dropdown_width: int = 14
-    paddings: dict = field(default_factory=lambda: {'padx': 2, 'pady': 2})
+from config import Config, ConfigLoader, UI
 
 
 class App(tk.Tk):
 
     def __init__(self) -> None:
         super().__init__()
-        self.cfg = Config().get_config()
-        self.ui = UI()
+        config = ConfigLoader().get_config()
+        config = {k: v for k, v in config.items() if k in Config.__annotations__}
+        self.conf = Config(**config)
+        self.ui = UI(**ConfigLoader().load_json('ui.json'))
+
         self.model = 'gpt-3.5-turbo'
         self.input, self.output = '', ''
         self.status = tk.StringVar()
         self.url = tk.StringVar()
 
-        self.title(self.cfg['ui']['title'])
+        self.title(self.ui.title)
         self.geometry('800x800')
 
-        if self.cfg['theme']:
-            sv_ttk.set_theme(self.cfg['theme'])
+        if self.conf.theme:
+            sv_ttk.set_theme(self.conf.theme)
 
-        if not self.cfg['resizable_window']:
+        if not self.conf.resizable_window:
             self.resizable(width=False, height=False)
 
         self.frame_top()
@@ -86,14 +45,14 @@ class App(tk.Tk):
         frame_top.pack(fill=tk.X, **self.ui.paddings)
 
         selected_model = tk.StringVar()
-        models = list(self.cfg['models'].keys())
+        models = list(self.conf.models.keys())
         selected_model.set(models[0])
         dropdown_model = tk.OptionMenu(frame_top, selected_model, *models,
                                        command=self.set_model)
         dropdown_model.config(width=self.ui.dropdown_width)
         dropdown_model.pack(side=tk.LEFT, fill=tk.X)
 
-        default_url = self.cfg['ui']['message_url']
+        default_url = self.ui.message_url
 
         def clean_url(event: tk.Event = None) -> None:
             if self.url.get().strip() == default_url:
@@ -113,7 +72,7 @@ class App(tk.Tk):
 
         button_fill = tk.Button(
             frame_top,
-            text=self.cfg['ui']['button_load_article'],
+            text=self.ui.button_load_article,
             width=self.ui.button_width,
             command=self.get_article
         )
@@ -123,8 +82,8 @@ class App(tk.Tk):
         frame_input = tk.Frame(self)
         frame_input.pack(fill=tk.X, **self.ui.paddings)
 
-        default_input = self.cfg['ui']['message_input']
-        fault_input = self.cfg['ui']['unable_to_load_article']
+        default_input = self.ui.message_input
+        fault_input = self.ui.error_load_article
 
         def clean_input(event: tk.Event = None) -> None:
             if self.input_text.get('1.0', tk.END).strip() in (default_input, fault_input):
@@ -153,7 +112,7 @@ class App(tk.Tk):
         frame_actions.pack(fill=tk.X, **self.ui.paddings)
 
         self.prompt_template = tk.StringVar()
-        templates = list(self.cfg['templates'].keys())
+        templates = list(self.conf.templates.keys())
         self.prompt_template.set(templates[0])
         dropdown_prompt = tk.OptionMenu(
             frame_actions,
@@ -165,7 +124,7 @@ class App(tk.Tk):
 
         button_generate = tk.Button(
             frame_actions,
-            text=self.cfg['ui']['button_generate'],
+            text=self.ui.button_generate,
             width=self.ui.button_width,
             command=self.call_gpt
         )
@@ -189,7 +148,7 @@ class App(tk.Tk):
         frame_status_bar = tk.Frame(self)
         frame_status_bar.pack(fill=tk.X, **self.ui.paddings)
 
-        self.status.set(self.cfg['ui']['ready'])
+        self.status.set(self.ui.ready)
         self.status_bar = tk.Label(frame_status_bar, textvariable=self.status)
         self.status_bar.pack(side=tk.LEFT, fill=tk.X)
 
@@ -205,16 +164,20 @@ class App(tk.Tk):
         prompt_input = self.input_text.get('1.0', tk.END).strip()
         self.input = '\n\n'.join([
             line.strip().format('\n\n' + prompt_input.strip())
-            for line in self.cfg['templates'][prompt_template]
+            for line in self.conf.templates[prompt_template]
         ])
 
     def call_gpt(self, event: tk.Event = None) -> None:
+        if not self.input.strip() or self.input.strip() == self.ui.message_input:
+            self.status.set(self.ui.error_no_input)
+            return
+
         time_start = datetime.now()
         self.prepare_prompt()
-        api_key = os.environ.get('OPENAI_API_KEY', self.cfg.get('openai_api_key'))
+        api_key = os.environ.get('OPENAI_API_KEY', self.cfg.openai_api_key)
 
         try:
-            self.status.set(f"{self.cfg['ui']['waiting']}")
+            self.status.set(f"{self.ui.waiting}")
             self.update_idletasks()
             self.client = OpenAI(api_key=api_key)
             resp = self.client.chat.completions.create(
@@ -226,7 +189,7 @@ class App(tk.Tk):
             )
         except APIError as e:
             print(e.message)
-            self.status.set(f"{self.cfg['ui']['warning']} {e.body['message'][:85]} ...")
+            self.status.set(f"{self.ui.error} {e.body['message'][:85]} ...")
             return
 
         self.output = resp.choices[0].message.content
@@ -234,29 +197,29 @@ class App(tk.Tk):
         self.response_text.insert('1.0', self.output)
         cost = self.get_request_cost(resp)
         duration = (datetime.now() - time_start).seconds
-        self.status.set(f"{self.cfg['ui']['request_completed'].format(
-            duration, cost, self.cfg['currency']
+        self.status.set(f"{self.ui.request_completed.format(
+            duration, cost, self.conf.currency
         )}")
         self.copy_to_clipboard()
         self.archive_chat()
 
     def get_request_cost(self, response: ChatCompletion) -> float:
         per_tokens = 1000
-        in_cost = self.cfg['models'][self.model]['input_token_cost']
-        out_cost = self.cfg['models'][self.model]['output_token_cost']
+        in_cost = self.conf.models[self.model]['input_token_cost']
+        out_cost = self.conf.models[self.model]['output_token_cost']
         cost_prompt = response.usage.prompt_tokens / per_tokens * in_cost
         cost_resp = response.usage.completion_tokens / per_tokens * out_cost
         cost = cost_prompt + cost_resp
 
-        if self.cfg['currency'] != 'USD' and self.cfg['currency_exchange_rate']:
-            cost = cost * self.cfg['currency_exchange_rate']
+        if self.conf.currency != 'USD' and self.conf.currency_exchange_rate:
+            cost = cost * self.conf.currency_exchange_rate
 
         cost = round(cost, 3)
 
         return cost
 
     def copy_to_clipboard(self) -> None:
-        if not self.cfg['copy_to_clipboard']:
+        if not self.conf.copy_to_clipboard:
             return
 
         response = self.response_text.get('1.0', tk.END).strip()
@@ -267,8 +230,8 @@ class App(tk.Tk):
         self.clipboard_clear()
         self.clipboard_append(response)
 
-        copy_msg = self.cfg['ui']['copied']
-        sep = self.cfg['ui']['separator']
+        copy_msg = self.ui.copied
+        sep = self.ui.separator
         current_status = self.status_bar.cget('text')
 
         if not current_status.endswith(copy_msg):
@@ -278,7 +241,8 @@ class App(tk.Tk):
     def get_article(self) -> None:
         url = self.url.get().strip()
 
-        if not url or url == self.cfg['ui']['message_url']:
+        if not url or url == self.ui.message_url or not url.startswith(('http://', 'https://')):
+            self.status.set(self.ui.error_no_url)
             return
 
         article = Article(url)
@@ -289,14 +253,14 @@ class App(tk.Tk):
         if article.text:
             self.input_text.insert('1.0', article.text)
         else:
-            self.input_text.insert('1.0', self.cfg['ui']['unable_to_load_article'])
+            self.input_text.insert('1.0', self.ui.error_load_article)
 
     def archive_chat(self) -> None:
-        if not self.cfg['archive']:
+        if not self.conf.archive:
             return
 
         now = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        archive_dir = self.cfg['archive_path']
+        archive_dir = self.conf.archive_path
 
         if not os.path.isdir(archive_dir):
             os.makedirs(archive_dir)

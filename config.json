@@ -1,11 +1,4 @@
 {
-    "archive" : true,
-    "archive_path" : "archive",
-    "currency": "USD",
-    "currency_exchange_rate": 1,
-    "copy_to_clipboard": true,
-    "resizable_window": true,
-    "theme": "dark",
     "models": {
         "gpt-3.5-turbo": {
             "description": "cheap and good enough",
@@ -50,19 +43,5 @@
             "You're a professional researcher.",
             "Provide a detailed and comprehensive summary of the following book. {}"
         ]
-    },
-    "ui": {
-        "title" : "💬 Assistify - Chat GPT assistant",
-        "button_load_article" : "Load article",
-        "button_generate": " 💬 Generate",
-        "message_input" : "Enter the variable input of your prompt here.\nThen press CTRL+ENTER or click the 💬 generate button.",
-        "message_url": "Type a URL with article to load",
-        "ready": "✅ Ready",
-        "separator": "•",
-        "unable_to_load_article": "⚠️ Unable to load article",
-        "copied": "Copied to clipboard",
-        "request_completed": "✅ Completed in {}s • Cost {} {}",
-        "waiting": "⌛ Waiting for GPT...",
-        "warning": "⚠️"
     }
 }

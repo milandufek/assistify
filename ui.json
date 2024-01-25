@@ -1,0 +1,16 @@
+{
+    "title" : "💬 Assistify - ChatGPT assistant",
+    "button_load_article" : "Load article",
+    "button_generate": " 💬 Generate",
+    "message_input" : "Enter the variable input of your prompt here.\nThen press CTRL+ENTER or click the 💬 generate button.",
+    "message_url": "Type a URL with article to load",
+    "ready": "✅ Ready",
+    "separator": "•",
+    "copied": "Copied to clipboard",
+    "request_completed": "✅ Completed in {}s • Cost {} {}",
+    "waiting": "⌛ Waiting for ChatGPT...",
+    "error": "⚠️",
+    "error_load_article": "⚠️ Unable to load article",
+    "error_no_input": "⚠️ No input text",
+    "error_no_url": "⚠️ No URL specified"
+}

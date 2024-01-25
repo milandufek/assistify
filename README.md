@@ -1,4 +1,8 @@
-# 💬 Assistify - Chat GPT assistant
+# 💬 Assistify - ChatGPT assistant
+
+## Description
+
+Assistify is a simple assistant based on [ChatGPT](https://chat.openai.com/). It allows you to create you own templates and use them to chat with the AI. Like create a summary for the article, correct your grammar or other tasks as a helpful assistant.
 
 ## Installation
 
