@@ -168,13 +168,15 @@ class App(tk.Tk):
         ])
 
     def call_gpt(self, event: tk.Event = None) -> None:
-        if not self.input.strip() or self.input.strip() == self.ui.message_input:
+        self.input = self.input_text.get('1.0', tk.END).strip()
+
+        if not self.input or self.input == self.ui.message_input:
             self.status.set(self.ui.error_no_input)
             return
 
         time_start = datetime.now()
         self.prepare_prompt()
-        api_key = os.environ.get('OPENAI_API_KEY', self.cfg.openai_api_key)
+        api_key = os.environ.get('OPENAI_API_KEY', self.conf.openai_api_key)
 
         try:
             self.status.set(f"{self.ui.waiting}")
@@ -241,8 +243,12 @@ class App(tk.Tk):
     def get_article(self) -> None:
         url = self.url.get().strip()
 
-        if not url or url == self.ui.message_url or not url.startswith(('http://', 'https://')):
+        if not url or url == self.ui.message_url:
             self.status.set(self.ui.error_no_url)
+            return
+
+        if not url.startswith(('http://', 'https://')):
+            self.status.set(self.ui.error_invalid_url)
             return
 
         article = Article(url)

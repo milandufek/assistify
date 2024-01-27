@@ -12,5 +12,6 @@
     "error": "⚠️",
     "error_load_article": "⚠️ Unable to load article",
     "error_no_input": "⚠️ No input text",
-    "error_no_url": "⚠️ No URL specified"
+    "error_no_url": "⚠️ No URL specified",
+    "error_invalid_url": "⚠️ Invalid URL"
 }

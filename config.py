@@ -45,6 +45,7 @@ class Config:
     models: dict
     templates: dict
     archive: bool = True
+    openai_api_key: str = ''
     archive_path: str = 'archive'
     copy_to_clipboard: bool = True
     currency_exchange_rate: float = 1.0
@@ -60,6 +61,7 @@ class UI:
     copied: str
     error_load_article: str
     error_no_input: str
+    error_invalid_url: str
     error_no_url: str
     error: str
     message_input: str
