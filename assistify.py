@@ -167,23 +167,26 @@ class App(tk.Tk):
     def set_prompt(self, prompt: str) -> str:
         return prompt
 
-    def prepare_prompt(self) -> None:
+    def prepare_prompt(self) -> bool:
         prompt_template = self.prompt_template.get()
         prompt_input = self.input_text.get('1.0', tk.END).strip()
+
+        if not prompt_input or prompt_input == self.ui.message_input:
+            self.status.set(self.ui.error_no_input)
+            return False
+
         self.input = '\n\n'.join([
             line.strip().format('\n\n' + prompt_input.strip())
             for line in self.conf.templates[prompt_template]
         ])
 
-    def call_gpt(self, event: tk.Event = None) -> None:
-        self.input = self.input_text.get('1.0', tk.END).strip()
+        return True
 
-        if not self.input or self.input == self.ui.message_input:
-            self.status.set(self.ui.error_no_input)
+    def call_gpt(self, event: tk.Event = None) -> None:
+        if not self.prepare_prompt():
             return
 
         time_start = datetime.now()
-        self.prepare_prompt()
         api_key = os.environ.get('OPENAI_API_KEY', self.conf.openai_api_key)
 
         try:
