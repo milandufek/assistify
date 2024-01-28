@@ -58,6 +58,7 @@ class Config:
 class UI:
     button_generate: str
     button_load_article: str
+    button_switch_theme: str
     copied: str
     error_load_article: str
     error_no_input: str

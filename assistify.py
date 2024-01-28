@@ -26,6 +26,7 @@ class App(tk.Tk):
 
         self.title(self.ui.title)
         self.geometry('800x800')
+        self.theme = self.conf.theme
 
         if self.conf.theme:
             sv_ttk.set_theme(self.conf.theme)
@@ -151,6 +152,13 @@ class App(tk.Tk):
         self.status.set(self.ui.ready)
         self.status_bar = tk.Label(frame_status_bar, textvariable=self.status)
         self.status_bar.pack(side=tk.LEFT, fill=tk.X)
+
+        button_switch = tk.Button(
+            frame_status_bar,
+            text=self.ui.button_switch_theme,
+            command=self.switch_theme
+        )
+        button_switch.pack(side=tk.RIGHT, fill=tk.X)
 
     def set_model(self, model: str) -> str:
         self.model = model
@@ -279,6 +287,10 @@ class App(tk.Tk):
         }
         with open(file_path, 'w') as f:
             json.dump(dump, f, ensure_ascii=False, indent=4)
+
+    def switch_theme(self) -> None:
+        self.theme = 'light' if self.theme == 'dark' else 'dark'
+        sv_ttk.set_theme(self.theme)
 
 
 if __name__ == '__main__':

@@ -2,6 +2,7 @@
     "title" : "💬 Assistify - ChatGPT assistant",
     "button_load_article" : "Load article",
     "button_generate": " 💬 Generate",
+    "button_switch_theme": "🌓",
     "message_input" : "Enter the variable input of your prompt here.\nThen press CTRL+ENTER or click the 💬 generate button.",
     "message_url": "Type a URL with article to load",
     "ready": "✅ Ready",
