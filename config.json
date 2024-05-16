@@ -1,5 +1,11 @@
 {
     "models": {
+        "gpt-4o": {
+            "description": "fair price and great",
+            "input_token_cost": 0.005,
+            "output_token_cost": 0.015,
+            "currency": "USD"
+        },
         "gpt-3.5-turbo": {
             "description": "cheap and good enough",
             "input_token_cost": 0.001,
